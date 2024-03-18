@@ -69,7 +69,7 @@ function request(url)
     if love.system.getOS() == 'OS X' then
         response, code = https.request(url)
     else
-        code, response = https.request(url, {headers = {['User-Agent'] = 'Balamod-Client'}})
+        code, response = https.request(url)
     end
     return code, response
 end
@@ -340,6 +340,10 @@ function installMod(modId)
             end
         end
     end
+	
+	for _, dependency in ipairs(modInfo.dependencies) do
+		installMod(dependency)
+	end
 
     sendDebugMessage('Downloading mod ' .. modId)
     local modUrl = modInfo.url
@@ -480,6 +484,25 @@ function refreshRepos()
     return RESULT.SUCCESS
 end
 
+function stringToArray(inputString)    
+-- Initialize an empty table to store the values
+    local array = {}
+	
+	if inputString == nil then
+		return array
+	end
+	
+    -- Remove curly braces from the string
+    local strippedString = inputString:gsub("{(.-)}", "%1")
+
+    -- Iterate over the values using string.gmatch
+    for value in strippedString:gmatch("[^,%s]+") do
+        table.insert(array, value)
+    end
+
+    return array
+end
+
 function refreshRepo(url)
     local code, body = request(url)
 
@@ -493,14 +516,15 @@ function refreshRepo(url)
     -- clear repoMods
     repoMods = {}
     for modInfo in string.gmatch(body, '([^\n]+)') do
-        local modId, modVersion, modName, modDesc, modUrl = string.match(modInfo,
-                                                                         '([^|]+)|([^|]+)|([^|]+)|([^|]+)|([^|]+)')
+        local modId, modVersion, modName, modDesc, modUrl, dependencies = string.match(modInfo,
+                                                                         '([^|]+)|([^|]+)|([^|]+)|([^|]+)|([^|]+)|([^|]+)')
         table.insert(repoMods, {
             mod_id = modId,
             name = modName,
             description = modDesc,
             url = modUrl,
-            version = modVersion
+            version = modVersion, 
+			dependencies = stringToArray(dependencies)
         })
     end
 
