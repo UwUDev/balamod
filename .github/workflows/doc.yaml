@@ -1,0 +1,56 @@
+name: Schedule Deploy Documentation
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  push:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/doc.yaml'
+  workflow_run:
+    workflows: ["Release Workflow"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v1
+        with:
+          mdbook-version: 'latest'
+
+      - name: Setup mdbook-admonish
+        uses: taiki-e/cache-cargo-install-action@v1
+        with:
+          tool: mdbook-admonish
+      
+      - name: Setup mdbook-toc
+        uses: taiki-e/cache-cargo-install-action@v1
+        with:
+          tool: mdbook-toc
+
+      - name: Install mdbook-tera
+        uses: jaxxstorm/action-install-gh-release@v1.10.0
+        with:
+          repo: avitex/mdbook-tera
+          tag: v0.5.1
+          cache: enable
+
+      - name: mdBook build
+        run: |
+          python scripts/CollectCommunityMods.py
+          mdbook build
+        working-directory: ./docs
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/doc'}}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/book
